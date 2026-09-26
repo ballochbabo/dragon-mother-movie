@@ -1,0 +1,173 @@
+from moviepy import ImageClip, concatenate_videoclips
+from PIL import Image, ImageDraw, ImageFont
+import os
+import math
+
+W, H = 1280, 720
+FPS = 24
+DURATION = 8
+
+scenes = [
+    ("PART 1", "THE MYSTERIOUS EGG",
+     "Elena discovers a mysterious dragon egg\nbeneath the frozen ice."),
+
+    ("PART 2", "THE DRAGON IS BORN",
+     "The egg cracks open...\nA baby dragon chooses Elena as its mother."),
+
+    ("PART 3", "THE SECRET PROPHECY",
+     "An ancient prophecy reveals\nthe true identity of the dragon."),
+
+    ("PART 4", "THE HUNTERS",
+     "Soldiers attack the village.\nElena and the dragon run for their lives."),
+
+    ("PART 5", "THE DRAGON KING",
+     "The ancient Dragon King appears\nand demands his child back."),
+
+    ("PART 6", "THE FINAL BATTLE",
+     "Two dragons clash above the frozen mountains.\nThe young dragon discovers its true power."),
+
+    ("PART 7", "THE DRAGON MOTHER",
+     "Elena saves the dragon.\nTogether they fly toward the sunrise.")
+]
+
+os.makedirs("scenes", exist_ok=True)
+
+# Find a font available on most Linux systems
+font_paths = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
+]
+
+font_path = next((p for p in font_paths if os.path.exists(p)), None)
+
+def font(size):
+    if font_path:
+        return ImageFont.truetype(font_path, size)
+    return ImageFont.load_default()
+
+def create_scene(index, part, title, text):
+    img = Image.new("RGB", (W, H), (8, 10, 18))
+    draw = ImageDraw.Draw(img)
+
+    # Cinematic background
+    for y in range(H):
+        t = y / H
+        r = int(8 + 30 * t)
+        g = int(10 + 12 * t)
+        b = int(18 + 35 * t)
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    # Moon
+    draw.ellipse((930, 80, 1080, 230), fill=(210, 220, 230))
+
+    # Mountains
+    mountains = [
+        [(0, 560), (250, 300), (470, 560)],
+        [(300, 560), (650, 240), (980, 560)],
+        [(760, 560), (1050, 320), (1280, 560)]
+    ]
+
+    for points in mountains:
+        draw.polygon(points, fill=(18, 25, 40))
+
+    # Snow
+    for x in range(0, W, 80):
+        for y in range(120, H, 100):
+            offset = int(25 * math.sin(x + y))
+            draw.ellipse(
+                (x + offset, y, x + offset + 4, y + 4),
+                fill=(220, 230, 240)
+            )
+
+    # Dragon silhouette
+    if index >= 4:
+        cx, cy = 640, 300
+
+        # body
+        draw.ellipse((cx-130, cy-60, cx+130, cy+70), fill=(45, 18, 25))
+
+        # head
+        draw.ellipse((cx+70, cy-110, cx+210, cy+20), fill=(55, 20, 28))
+
+        # wings
+        draw.polygon(
+            [(cx-40, cy-20), (cx-300, cy-220),
+             (cx-160, cy+10), (cx-30, cy+30)],
+            fill=(35, 15, 25)
+        )
+
+        draw.polygon(
+            [(cx+20, cy-20), (cx+280, cy-220),
+             (cx+160, cy+20), (cx+50, cy+35)],
+            fill=(35, 15, 25)
+        )
+
+        # eyes
+        draw.ellipse((cx+145, cy-70, cx+160, cy-55), fill=(255, 50, 30))
+
+    # Dark cinematic overlay
+    draw.rectangle((0, 0, W, H), fill=(0, 0, 0, 55))
+
+    # Part
+    draw.text(
+        (W//2, 80),
+        part,
+        font=font(34),
+        fill=(220, 220, 220),
+        anchor="mm"
+    )
+
+    # Title
+    draw.text(
+        (W//2, 150),
+        title,
+        font=font(62),
+        fill=(255, 235, 210),
+        anchor="mm"
+    )
+
+    # Story text
+    lines = text.split("\n")
+    y = 570
+
+    for line in lines:
+        draw.text(
+            (W//2, y),
+            line,
+            font=font(32),
+            fill=(245, 245, 245),
+            anchor="mm"
+        )
+        y += 45
+
+    path = f"scenes/scene_{index}.png"
+    img.save(path)
+
+    return path
+
+
+clips = []
+
+for i, (part, title, text) in enumerate(scenes, 1):
+    image_path = create_scene(i, part, title, text)
+
+    clip = (
+        ImageClip(image_path)
+        .with_duration(DURATION)
+        .resized(width=W, height=H)
+    )
+
+    clips.append(clip)
+
+# Join all 7 scenes
+final = concatenate_videoclips(clips, method="compose")
+
+final.write_videofile(
+    "dragon_mother.mp4",
+    fps=FPS,
+    codec="libx264",
+    audio=False
+)
+
+print("\nDONE!")
+print("Your movie is: dragon_mother.mp4")
